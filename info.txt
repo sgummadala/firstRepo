@@ -32,3 +32,4 @@ curl -s -X POST http://127.0.0.1:8000/run_sse \
 =========
 
 adk api_server --allow_origins "http://localhost:3000"
+adk api_server bigquery_tool_agent --allow_origins "http://localhost:3000"
