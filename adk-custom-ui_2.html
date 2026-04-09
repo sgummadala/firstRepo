@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ADK Agent Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0d0f14; --surface:#161921; --surface2:#1e2330;
+    --border:rgba(255,255,255,0.07); --border-hi:rgba(99,179,237,0.4);
+    --text:#e8ecf4; --muted:#6b7692; --dim:#3d4460;
+    --accent:#63b3ed; --accent-bg:rgba(99,179,237,0.08);
+    --agent-bg:#1a2035; --user-bg:#0e2a45;
+    --green:#4ade80; --red:#f87171; --yellow:#fbbf24;
+    --mono:'IBM Plex Mono',monospace; --sans:'DM Sans',sans-serif;
+    --r:14px; --rs:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden}
+  .app{display:grid;grid-template-columns:290px 1fr;height:100vh}
+
+  /* ── sidebar ── */
+  .side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+  .side-top{padding:18px 18px 14px;border-bottom:1px solid var(--border)}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .brand-ic{width:32px;height:32px;border-radius:8px;background:var(--accent-bg);border:1px solid var(--border-hi);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .brand-name{font-size:14px;font-weight:600}
+  .brand-ver{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:1px}
+  .btn-new{width:100%;padding:9px 12px;background:var(--accent-bg);border:1px solid var(--border-hi);border-radius:var(--rs);color:var(--accent);font-size:13px;font-family:var(--sans);font-weight:500;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .15s}
+  .btn-new:hover{background:rgba(99,179,237,.16)}
+  .btn-new::before{content:'+';font-size:17px;line-height:1}
+
+  .cfg{padding:13px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+  .cfg-lbl{font-size:10px;font-family:var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+  .cfg-in{width:100%;padding:7px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:12px;font-family:var(--mono);outline:none;transition:border-color .15s;margin-bottom:5px}
+  .cfg-in:focus{border-color:var(--border-hi)}
+  .cfg-row{display:flex;gap:6px;align-items:center;margin-bottom:5px}
+  .cfg-row .cfg-in{margin-bottom:0;flex:1}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--dim);flex-shrink:0;transition:all .3s}
+  .dot.ok{background:var(--green);box-shadow:0 0 6px rgba(74,222,128,.5)}
+  .dot.err{background:var(--red);box-shadow:0 0 6px rgba(248,113,113,.5)}
+  .btn-conn{width:100%;padding:8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);color:var(--muted);font-size:12px;font-family:var(--mono);cursor:pointer;transition:all .15s}
+  .btn-conn:hover{border-color:var(--border-hi);color:var(--accent)}
+
+  .sess-wrap{flex:1;overflow-y:auto;padding:8px}
+  .sess-wrap::-webkit-scrollbar{width:3px}
+  .sess-wrap::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .sess-item{padding:9px 11px;border-radius:var(--rs);cursor:pointer;border:1px solid transparent;margin-bottom:3px;transition:background .1s}
+  .sess-item:hover{background:var(--surface2)}
+  .sess-item.active{background:var(--accent-bg);border-color:var(--border-hi)}
+  .sess-name{font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sess-id{font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ── main ── */
+  .main{display:flex;flex-direction:column;overflow:hidden}
+  .hdr{padding:13px 22px;border-bottom:1px solid var(--border);background:var(--surface);flex-shrink:0;display:flex;align-items:center}
+  .hdr-info{flex:1}
+  .hdr-app{font-size:14px;font-weight:600;display:flex;align-items:center;gap:8px}
+  .hdr-sid{font-size:11px;color:var(--muted);font-family:var(--mono);margin-top:2px}
+  .badge{font-size:10px;font-family:var(--mono);padding:3px 7px;border-radius:4px;background:var(--accent-bg);color:var(--accent);border:1px solid var(--border-hi)}
+
+  /* ── messages ── */
+  .msgs{flex:1;overflow-y:auto;padding:18px 22px;display:flex;flex-direction:column;gap:12px}
+  .msgs::-webkit-scrollbar{width:3px}
+  .msgs::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .msg{display:flex;gap:9px;animation:fi .18s ease}
+  @keyframes fi{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+  .msg.user{flex-direction:row-reverse}
+  .av{width:28px;height:28px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;font-family:var(--mono);font-weight:500}
+  .av.agent{background:var(--accent-bg);color:var(--accent);border:1px solid var(--border-hi)}
+  .av.user{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.25)}
+  .bub{max-width:76%;padding:10px 14px;border-radius:var(--r);font-size:14px;line-height:1.65;word-break:break-word}
+  .msg.agent .bub{background:var(--agent-bg);border:1px solid var(--border);border-top-left-radius:4px}
+  .msg.user  .bub{background:var(--user-bg);border:1px solid rgba(99,179,237,.18);border-top-right-radius:4px}
+  .bub code{font-family:var(--mono);font-size:12px;background:rgba(255,255,255,.06);padding:1px 5px;border-radius:4px;color:var(--accent)}
+  .bub pre{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:10px 12px;overflow-x:auto;font-family:var(--mono);font-size:12px;margin-top:7px;white-space:pre-wrap;line-height:1.5}
+  .bub pre code{background:none;padding:0;color:#9ab}
+  .meta{font-size:10px;color:var(--dim);font-family:var(--mono);margin-top:3px}
+  .msg.user .meta{text-align:right}
+
+  /* tool blocks */
+  .tool{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:8px 11px;font-family:var(--mono);font-size:11px;margin-top:6px}
+  .tool-name{font-weight:500;margin-bottom:3px;font-size:12px}
+  .tool pre{background:none;border:none;padding:0;margin:0;color:var(--muted);font-size:11px;white-space:pre-wrap}
+
+  /* thinking */
+  .thinking{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13px}
+  .dots span{display:inline-block;width:4px;height:4px;border-radius:50%;background:var(--dim);animation:pulse 1.2s ease-in-out infinite}
+  .dots span:nth-child(2){animation-delay:.2s}.dots span:nth-child(3){animation-delay:.4s}
+  @keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+
+  /* empty */
+  .empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px}
+  .empty-ic{font-size:34px;opacity:.2}
+  .empty-t{font-size:14px;font-weight:500;color:var(--dim)}
+  .empty-s{font-size:12px;font-family:var(--mono);max-width:270px;line-height:1.6;color:var(--dim)}
+
+  /* input */
+  .inp-wrap{padding:13px 22px 17px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0}
+  .inp-box{display:flex;gap:9px;align-items:flex-end;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:8px 11px;transition:border-color .15s}
+  .inp-box:focus-within{border-color:var(--border-hi)}
+  #mi{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--sans);font-size:14px;resize:none;max-height:140px;line-height:1.6;min-height:22px}
+  #mi::placeholder{color:var(--dim)}
+  .send{width:32px;height:32px;border-radius:var(--rs);background:var(--accent);border:none;color:#0d0f14;font-size:14px;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:background .15s,transform .1s;align-self:flex-end}
+  .send:hover:not(:disabled){background:#90cdf4}
+  .send:active:not(:disabled){transform:scale(.95)}
+  .send:disabled{background:var(--dim);cursor:not-allowed}
+  .hint{font-size:11px;color:var(--dim);margin-top:6px;font-family:var(--mono);text-align:center}
+
+  /* debug bar */
+  .dbg{padding:4px 22px;background:rgba(0,0,0,.3);border-top:1px solid var(--border);font-size:10px;font-family:var(--mono);color:var(--dim);display:flex;gap:14px;flex-shrink:0;overflow:hidden}
+  .dbg b{color:var(--muted)}
+
+  /* toast */
+  .toast{position:fixed;bottom:18px;right:18px;z-index:999;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:9px 14px;font-size:13px;animation:fi .18s ease;max-width:360px;line-height:1.5;white-space:pre-line}
+  .toast.err{border-left:3px solid var(--red)}
+  .toast.ok{border-left:3px solid var(--green)}
+  .toast.info{border-left:3px solid var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- sidebar -->
+  <aside class="side">
+    <div class="side-top">
+      <div class="brand">
+        <div class="brand-ic">⬡</div>
+        <div>
+          <div class="brand-name">ADK Chat</div>
+          <div class="brand-ver">bigquery_tool_agent</div>
+        </div>
+      </div>
+      <button class="btn-new" onclick="newSession()">New conversation</button>
+    </div>
+
+    <div class="cfg">
+      <div class="cfg-lbl">Server</div>
+      <!-- Host -->
+      <input class="cfg-in" id="cfgHost" value="http://127.0.0.1:8000" placeholder="http://127.0.0.1:8000"/>
+      <!-- App name MUST match your agent folder name exactly -->
+      <input class="cfg-in" id="cfgApp"  value="bigquery_tool_agent" placeholder="agent folder name"/>
+      <div class="cfg-row">
+        <input class="cfg-in" id="cfgUser" value="user_001" placeholder="user_id"/>
+        <div class="dot" id="dot" title="connection status"></div>
+      </div>
+      <button class="btn-conn" onclick="connect()">▶ Connect</button>
+    </div>
+
+    <div class="sess-wrap" id="sessList">
+      <div style="font-size:11px;color:var(--dim);text-align:center;padding:22px 8px;font-family:var(--mono);line-height:1.7">
+        Set config above<br>then click Connect
+      </div>
+    </div>
+  </aside>
+
+  <!-- main -->
+  <main class="main">
+    <div class="hdr">
+      <div class="hdr-info">
+        <div class="hdr-app" id="hdrApp">No agent connected <span class="badge">SSE</span></div>
+        <div class="hdr-sid" id="hdrSid">—</div>
+      </div>
+    </div>
+
+    <div class="msgs" id="msgs">
+      <div class="empty" id="empty">
+        <div class="empty-ic">⬡</div>
+        <div class="empty-t">No active conversation</div>
+        <div class="empty-s">Connect to your ADK agent then start a new conversation.</div>
+      </div>
+    </div>
+
+    <div class="inp-wrap">
+      <div class="inp-box">
+        <textarea id="mi" placeholder="Send a message to your agent…" rows="1"
+          onkeydown="onKey(event)" oninput="resize(this)"></textarea>
+        <button class="send" id="sendBtn" onclick="send()" disabled>↑</button>
+      </div>
+      <div class="hint">Enter to send · Shift+Enter for new line</div>
+    </div>
+
+    <!-- live debug bar — shows exact URL + HTTP status of every request -->
+    <div class="dbg"><b>req:</b><span id="dbgUrl">—</span><b>status:</b><span id="dbgSt">—</span></div>
+  </main>
+</div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  host: 'http://127.0.0.1:8000',
+  app:  'bigquery_tool_agent',   // must match agent folder name
+  uid:  'user_001',
+  sid:  null,
+  sessions: [],
+  connected: false,
+  busy: false
+};
+
+// ─── Connect ──────────────────────────────────────────────────────────────────
+async function connect() {
+  S.host = $('cfgHost').value.replace(/\/+$/, '');
+  S.app  = $('cfgApp').value.trim();
+  S.uid  = $('cfgUser').value.trim();
+  setDot('');
+
+  // GET /list-apps  — confirmed from your openapi.json
+  const url = `${S.host}/list-apps`;
+  req(url, '…');
+  try {
+    const r = await tFetch(url, {}, 6000);
+    req(url, r.status);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+
+    // Response is either string[] or {apps:[{name,…}]}
+    const names = Array.isArray(data)
+      ? data
+      : (data.apps || []).map(a => a.name || a);
+
+    S.connected = true;
+    setDot('ok');
+    toast(`Connected ✓\nApps: ${names.join(', ')}`, 'ok');
+    $('brand-ver') && ($('brand-ver').textContent = S.app);
+    await loadSessions();
+  } catch(e) {
+    setDot('err');
+    req(url, 'ERR');
+    toast(`Cannot reach ${S.host}\n${e.message}`, 'err');
+  }
+}
+
+// ─── Sessions ─────────────────────────────────────────────────────────────────
+async function loadSessions() {
+  // GET /apps/{appName}/users/{userId}/sessions
+  // Returns Session[] directly (from openapi: array of Session objects)
+  const url = `${S.host}/apps/${S.app}/users/${S.uid}/sessions`;
+  req(url, '…');
+  try {
+    const r = await tFetch(url, {}, 5000);
+    req(url, r.status);
+    if (!r.ok) return;
+    const data = await r.json();
+    S.sessions = Array.isArray(data) ? data : [];
+    renderSessions();
+  } catch(_) {}
+}
+
+function renderSessions() {
+  const el = $('sessList');
+  if (!S.sessions.length) {
+    el.innerHTML = `<div style="font-size:11px;color:var(--dim);text-align:center;padding:20px 8px;font-family:var(--mono)">No sessions yet.<br>Click "New conversation".</div>`;
+    return;
+  }
+  el.innerHTML = S.sessions.map((s, i) => {
+    // Session object has .id field per openapi schema
+    const sid = s.id || s.session_id || (typeof s === 'string' ? s : JSON.stringify(s));
+    const cls = sid === S.sid ? 'active' : '';
+    const short = sid.length > 26 ? sid.slice(0, 24) + '…' : sid;
+    return `<div class="sess-item ${cls}" onclick="selSess('${esc(sid)}')">
+      <div class="sess-name">Conversation ${i + 1}</div>
+      <div class="sess-id">${short}</div>
+    </div>`;
+  }).join('');
+}
+
+async function newSession() {
+  if (!S.connected) { toast('Click Connect first ↑', 'err'); return; }
+
+  // POST /apps/{appName}/users/{userId}/sessions
+  // Body: CreateSessionRequest — all fields optional, send {} for auto-generated ID
+  const url = `${S.host}/apps/${S.app}/users/${S.uid}/sessions`;
+  req(url, 'POST…');
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: '{}'
+    });
+    req(url, r.status);
+    if (!r.ok) { const t = await r.text(); throw new Error(`HTTP ${r.status}: ${t}`); }
+
+    // Returns Session object — { id, appName, userId, state, events, … }
+    const session = await r.json();
+    const sid = session.id;
+    if (!sid) throw new Error('No id in Session response: ' + JSON.stringify(session));
+
+    S.sid = sid;
+    await loadSessions();
+    clearMsgs('Session ready. Send a message below.');
+    updHdr();
+    enableInp();
+    toast('New session created', 'ok');
+  } catch(e) {
+    toast('Failed to create session:\n' + e.message, 'err');
+  }
+}
+
+function selSess(sid) {
+  S.sid = sid;
+  renderSessions();
+  clearMsgs('Session selected. Send a message below.');
+  updHdr();
+  enableInp();
+}
+
+// ─── Send + SSE ───────────────────────────────────────────────────────────────
+async function send() {
+  const ta = $('mi');
+  const text = ta.value.trim();
+  if (!text || S.busy) return;
+  if (!S.sid) { toast('Select or create a session first', 'err'); return; }
+
+  ta.value = ''; resize(ta);
+  addMsg('user', text);
+  const tid = addThinking();
+  disableInp();
+  S.busy = true;
+
+  try {
+    await doSSE(text, tid);
+  } catch(e) {
+    rm(tid);
+    addMsg('agent', '⚠ ' + e.message);
+  } finally {
+    S.busy = false;
+    enableInp();
+  }
+}
+
+async function doSSE(text, tid) {
+  // POST /run_sse
+  // Body schema: RunAgentRequest
+  // IMPORTANT: all field names are camelCase per openapi spec
+  // {
+  //   appName:    string  ← NOT app_name
+  //   userId:     string  ← NOT user_id
+  //   sessionId:  string  ← NOT session_id
+  //   newMessage: Content ← NOT message or new_message
+  //   streaming:  boolean (optional, default false)
+  // }
+  const url = `${S.host}/run_sse`;
+  const body = JSON.stringify({
+    appName:   S.app,
+    userId:    S.uid,
+    sessionId: S.sid,
+    newMessage: {
+      role: 'user',
+      parts: [{ text }]
+    },
+    streaming: true
+  });
+
+  req(url, 'POST…');
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body
+  });
+  req(url, r.status);
+
+  if (!r.ok) {
+    const errBody = await r.text();
+    throw new Error(`HTTP ${r.status}: ${errBody}`);
+  }
+
+  const reader = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  let amid = null;
+  let gotFirst = false;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop(); // keep incomplete last line
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if (!raw || raw === '[DONE]') continue;
+
+      try {
+        const evt = JSON.parse(raw);
+        if (!gotFirst) { rm(tid); gotFirst = true; }
+        amid = onEvt(evt, amid);
+      } catch(_) { /* skip malformed chunk */ }
+    }
+  }
+  if (!gotFirst) rm(tid); // no events at all — remove spinner
+}
+
+function onEvt(evt, amid) {
+  // Event-Output schema:
+  // { content: { role, parts: [{text?, functionCall?, functionResponse?}] },
+  //   turnComplete?, partial?, author, … }
+
+  if (evt.content) {
+    const parts = evt.content.parts || [];
+    let textOut = '';
+
+    parts.forEach(p => {
+      if (p.text && !p.thought) {          // skip thought=true (internal reasoning)
+        textOut += p.text;
+      }
+      if (p.functionCall) {
+        addTool('call', p.functionCall.name, p.functionCall.args);
+      }
+      if (p.functionResponse) {
+        addTool('resp', p.functionResponse.name, p.functionResponse.response);
+      }
+    });
+
+    if (textOut) {
+      if (amid) streamTo(amid, textOut);
+      else      amid = addMsg('agent', textOut);
+    }
+  }
+
+  // turnComplete signals end of agent turn
+  if (evt.turnComplete) amid = null;
+
+  return amid;
+}
+
+// ─── DOM helpers ──────────────────────────────────────────────────────────────
+function addMsg(role, text) {
+  const area = $('msgs');
+  $('empty')?.remove();
+  const id = 'm' + Date.now() + Math.random().toString(36).slice(2, 6);
+  const d = document.createElement('div');
+  d.className = `msg ${role}`; d.id = id;
+  d.innerHTML = `
+    <div class="av ${role}">${role === 'agent' ? '⬡' : 'U'}</div>
+    <div>
+      <div class="bub" id="b${id}" data-r="">${fmt(text)}</div>
+      <div class="meta">${now()}</div>
+    </div>`;
+  area.appendChild(d);
+  sb(area);
+  return id;
+}
+
+function streamTo(id, chunk) {
+  const b = $('b' + id);
+  if (!b) return;
+  b.dataset.r += chunk;
+  b.innerHTML = fmt(b.dataset.r);
+  sb($('msgs'));
+}
+
+function addThinking() {
+  const area = $('msgs');
+  const id = 'tk' + Date.now();
+  const d = document.createElement('div');
+  d.className = 'msg agent'; d.id = id;
+  d.innerHTML = `<div class="av agent">⬡</div>
+    <div><div class="bub">
+      <div class="thinking"><div class="dots"><span></span><span></span><span></span></div>Thinking…</div>
+    </div></div>`;
+  area.appendChild(d); sb(area);
+  return id;
+}
+
+function addTool(type, name, data) {
+  const area = $('msgs');
+  const isCall = type === 'call';
+  const col = isCall ? 'var(--yellow)' : 'var(--green)';
+  const lbl = isCall ? '⚙ tool call' : '✓ tool result';
+  const d = document.createElement('div');
+  d.className = 'msg agent';
+  d.innerHTML = `<div class="av agent">⬡</div>
+    <div><div class="bub">
+      <div class="tool" style="border-left:3px solid ${col}">
+        <div class="tool-name" style="color:${col}">${lbl}: ${name}</div>
+        <pre>${JSON.stringify(data, null, 2)}</pre>
+      </div>
+    </div></div>`;
+  area.appendChild(d); sb($('msgs'));
+}
+
+function fmt(t) {
+  return t
+    .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, c) => `<pre><code>${escH(c.trim())}</code></pre>`)
+    .replace(/`([^`\n]+)`/g, (_, c) => `<code>${escH(c)}</code>`)
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+function escH(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function esc(s)  { return s.replace(/'/g,"\\'"); }
+
+function clearMsgs(sub) {
+  $('msgs').innerHTML = `<div class="empty" id="empty">
+    <div class="empty-ic">⬡</div>
+    <div class="empty-t">Session ready</div>
+    <div class="empty-s">${sub}</div>
+  </div>`;
+}
+
+function updHdr() {
+  $('hdrApp').innerHTML = `${S.app} <span class="badge">SSE</span>`;
+  $('hdrSid').textContent = S.sid ? `session: ${S.sid}` : '—';
+}
+function enableInp()  { $('sendBtn').disabled = false; $('mi').disabled = false; $('mi').focus(); }
+function disableInp() { $('sendBtn').disabled = true; }
+function setDot(cls)  { const d=$('dot'); d.className='dot'+(cls?' '+cls:''); }
+function rm(id)       { $(id)?.remove(); }
+function sb(el)       { el.scrollTop = el.scrollHeight; }
+function now()        { return new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}); }
+function $(id)        { return document.getElementById(id); }
+function req(url, st) {
+  $('dbgUrl').textContent = url.replace(S.host, '');
+  $('dbgSt').textContent  = st;
+}
+
+function toast(msg, type='') {
+  document.querySelectorAll('.toast').forEach(t => t.remove());
+  const t = document.createElement('div');
+  t.className = `toast ${type}`; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+async function tFetch(url, opts={}, ms=6000) {
+  const c = new AbortController();
+  const ti = setTimeout(() => c.abort(), ms);
+  try { return await fetch(url, {...opts, signal: c.signal}); }
+  finally { clearTimeout(ti); }
+}
+
+function onKey(e)  { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+function resize(el){ el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,140)+'px'; }
+</script>
+</body>
+</html>
