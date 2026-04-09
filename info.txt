@@ -11,3 +11,19 @@ curl -X POST http://127.0.0.1:8000/run_sse \
     "newMessage": {"role":"user","parts":[{"text":"hello"}]},
     "streaming": true
   }'
+======
+
+SESSION=$(curl -s -X POST http://127.0.0.1:8000/apps/bigquery_tool_agent/users/user_001/sessions \
+  -H "Content-Type: application/json" -d '{}' | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+
+echo "Session: $SESSION"
+
+curl -s -X POST http://127.0.0.1:8000/run_sse \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"appName\": \"bigquery_tool_agent\",
+    \"userId\": \"user_001\",
+    \"sessionId\": \"$SESSION\",
+    \"newMessage\": {\"role\":\"user\",\"parts\":[{\"text\":\"hello\"}]},
+    \"streaming\": true
+  }"
