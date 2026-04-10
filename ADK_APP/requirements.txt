@@ -1,0 +1,8 @@
+google-adk[database]>=1.0.0
+google-cloud-storage>=3.0.0
+psutil==5.9.5
+python-dotenv==1.1.0
+google-adk
+google-cloud-bigquery
+fastapi
+uvicorn

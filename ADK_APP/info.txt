@@ -1,1 +1,9 @@
-
+User types message in HTML → 
+    JavaScript doSSE() function → 
+        POST /run_sse request → 
+            ADK FastAPI app (server.py) → 
+                Routes to BigQuery_Agent (agent.py) → 
+                    Calls Gemini 2.5 Flash LLM → 
+                        Agent processes with BigQuery tools → 
+                            Streams response back → 
+                                JavaScript displays in UI
